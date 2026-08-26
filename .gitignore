@@ -1,0 +1,45 @@
+# Internal working documents — deliberately not published.
+# Scope that was set aside, and why, is published in ROADMAP.md instead.
+CLAUDE.md
+PLAN_SPRINTS.md
+.claude/
+
+# Secrets and environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Docker volumes and local data
+docker-volume/
+data/raw/
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+dist/
+build/
+*.egg-info/
+
+# dbt
+target/
+dbt_packages/
+logs/
+.user.yml
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

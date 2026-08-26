@@ -1,0 +1,65 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "immo-gov"
+version = "0.1.0"
+description = "Foundations of an operational Data Office on the French State's real-estate portfolio"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "Benoît Chevrier" }]
+
+# Runtime dependencies: deliberately minimal at Sprint 0.
+# Each one is added when a module actually uses it, never ahead of time.
+dependencies = [
+    "faker>=30.0",           # synthetic contact-field overlay — Sprint 1
+    "psycopg[binary]>=3.2",  # loading into PostgreSQL (bronze) — Sprint 1
+]
+
+[project.optional-dependencies]
+# dbt is isolated in its own extras group: its version constraints are strict
+# and must block neither the data loader nor CI, which only needs ruff and
+# pytest to run.
+dbt = ["dbt-core>=1.9", "dbt-postgres>=1.9"]
+dev = ["pytest>=8.3", "pytest-cov>=5.0", "ruff>=0.7"]
+
+# --- Packaging ---------------------------------------------------------------
+# src layout: the code lives under src/, not at the repository root.
+# Intended consequence: tests import the *installed* package, never the files
+# sitting next to them. A packaging mistake then fails a test instead of going
+# unnoticed until someone else installs the project.
+[tool.hatch.build.targets.wheel]
+packages = ["src/immo_gov"]
+
+# --- Code quality ------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# A tight, deliberate selection rather than an exhaustive one: every enabled
+# rule family has to be justifiable out loud. A "select everything" config the
+# author cannot explain is a liability in an interview, not an asset.
+select = [
+    "E", "W",  # pycodestyle — formatting
+    "F",       # pyflakes — real errors: dead imports, unused variables
+    "I",       # isort — import ordering
+    "UP",      # pyupgrade — idioms outdated for the target version
+    "B",       # flake8-bugbear — common semantic traps
+    "SIM",     # flake8-simplify — needless complexity
+]
+
+# --- Tests -------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--cov=immo_gov",
+    "--cov-report=term-missing",
+    # The 60 % threshold is the Sprint 1 definition of done turned into an
+    # executable guardrail. A stopping criterion written in a plan can be
+    # renegotiated; one that fails the command cannot.
+    "--cov-fail-under=60",
+]

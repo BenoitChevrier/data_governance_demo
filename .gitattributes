@@ -1,0 +1,19 @@
+# Line endings — strict LF normalisation.
+#
+# Rationale: every container in this project is Linux, including under Docker
+# Desktop for Windows. A file written with CRLF and mounted into a container
+# fails opaquely ("bad interpreter: /bin/bash^M" on a script, broken parsing on
+# a configuration file).
+#
+# The rule below stores everything as LF in history *and* checks it out as LF,
+# whatever the contributor's platform. The repository therefore behaves
+# identically on Windows, macOS and Linux.
+* text=auto eol=lf
+
+# Binary files: no conversion, on pain of corruption.
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.pdf  binary
+*.xlsx binary
+*.parquet binary
