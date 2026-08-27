@@ -1,0 +1,261 @@
+# ==============================================================================
+# data_governance_demo — local stack
+#
+# Written by hand from the official OpenMetadata 1.13.4 reference compose file
+# (536 lines, 271 environment variables, every one of them defaulted). Only the
+# variables that actually wire services together are set here; everything else
+# is left to the image defaults, deliberately.
+#
+# Six services:
+#   postgres-immo           our data — the system being catalogued
+#   openmetadata-db         the catalog's own metadata store
+#   elasticsearch           the catalog's search index
+#   openmetadata-migrate    one-shot schema migration, exits when done
+#   openmetadata-server     application and UI
+#   openmetadata-ingestion  embedded Airflow: connectors and quality tests
+#
+# Start:   docker compose up -d
+# UI:      http://localhost:8585
+# Airflow: http://localhost:8080
+#
+# The credentials below are local demo values. The stack binds to localhost only
+# and holds nothing but public open data. Hiding them behind a .env file to be
+# copied would add a step before the first start, break the one-command promise,
+# and protect nothing.
+# ==============================================================================
+
+# Images are pinned by digest, not by tag alone. A tag can be moved to point at
+# different content; a digest cannot. The tag is kept next to it so the version
+# stays readable. These digests are multi-architecture manifest lists, so the
+# stack still runs on Apple Silicon.
+#
+name: immo-gov
+
+networks:
+  # No fixed subnet, unlike the reference file: a hardcoded range collides with
+  # some corporate VPNs. Docker allocates a free one on its own.
+  immo_net:
+    driver: bridge
+
+volumes:
+  postgres-immo-data:
+  openmetadata-db-data:
+  elasticsearch-data:
+  ingestion-dags:
+  ingestion-dag-configs:
+  ingestion-tmp:
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # 1. postgres-immo — OUR data. Bronze, silver and gold live here as schemas of
+  #    a single database. This is the source system the catalog will read.
+  #
+  #    Deliberately a separate container from the catalog's own store: a catalog
+  #    reading its own database would prove nothing. The connector has to reach
+  #    a third-party server, with its own credentials, as it would in reality.
+  #
+  #    It takes host port 5432 because it is the one a human uses: dbt runs on
+  #    the host and connects here.
+  # ---------------------------------------------------------------------------
+  postgres-immo:
+    container_name: immo_postgres
+    image: postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: immo
+      POSTGRES_USER: immo_user
+      POSTGRES_PASSWORD: immo_password
+    ports:
+      - "5432:5432"
+    volumes:
+      # PostgreSQL 18+ expects a single mount at /var/lib/postgresql and places
+      # its data in a major-version subdirectory, so that pg_upgrade --link can
+      # work across a version bump. Mounting /var/lib/postgresql/data, the
+      # pre-18 convention, makes the image refuse to start.
+      - postgres-immo-data:/var/lib/postgresql
+      # Everything in here runs, in filename order, on the FIRST start of an
+      # empty volume only. This is what makes a fresh clone reproduce the same
+      # schema layout without anyone typing SQL by hand.
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    networks:
+      - immo_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U immo_user -d immo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # 2. openmetadata-db — the catalog's metadata store: glossary, tags, owners,
+  #    lineage graph. Nothing to do with the data being catalogued.
+  #
+  #    This is NOT a vanilla PostgreSQL image. It bootstraps two databases and
+  #    two roles: openmetadata_db/openmetadata_user for the catalog, and
+  #    airflow_db/airflow_user for the ingestion scheduler. A plain postgres
+  #    image would mean writing those init scripts ourselves.
+  #
+  #    Not published on the host: nothing outside Docker needs it, and leaving
+  #    5432 free avoids a port clash with postgres-immo.
+  # ---------------------------------------------------------------------------
+  openmetadata-db:
+    container_name: openmetadata_db
+    image: docker.getcollate.io/openmetadata/postgresql:1.13.4@sha256:1a22214117c2f70610e2f7432cbd38a1197e169182b3837150df746a8d32e863
+    restart: unless-stopped
+    command: "--work_mem=10MB"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - openmetadata-db-data:/var/lib/postgresql/data
+    networks:
+      - immo_net
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U postgres -tAc 'select 1' -d openmetadata_db"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # 3. elasticsearch — the search index behind the catalog's search bar.
+  #
+  #    The heaviest service in the stack. ES_JAVA_OPTS is the RAM lever: the
+  #    1 GiB heap set here is the reference value, and the first thing to lower
+  #    if the 6 GiB target proves tight.
+  #
+  #    Security is off because this node is unreachable from outside the Docker
+  #    network. Turning it on would require certificates and credentials for no
+  #    gain on a local stack.
+  # ---------------------------------------------------------------------------
+  elasticsearch:
+    container_name: openmetadata_elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0@sha256:4f6bdcb742e892539c6ac49b0dd3e4e182e90218546e8c6a22db378c344acb60
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms1024m -Xmx1024m"
+      xpack.security.enabled: "false"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - immo_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  # ---------------------------------------------------------------------------
+  # 4. openmetadata-migrate — runs the schema migrations, then exits.
+  #
+  #    This is what makes `docker compose up` repeatable: the server waits for
+  #    this container to complete successfully before starting, so an upgrade
+  #    never leaves the schema behind the application.
+  # ---------------------------------------------------------------------------
+  openmetadata-migrate:
+    container_name: openmetadata_migrate
+    image: docker.getcollate.io/openmetadata/server:1.13.4@sha256:99b48e01b941efb6ace3c742fdf074fb173734739b4c57c50ee4959f49d527f8
+    command: "./bootstrap/openmetadata-ops.sh migrate"
+    environment:
+      DB_DRIVER_CLASS: org.postgresql.Driver
+      DB_SCHEME: postgresql
+      DB_HOST: openmetadata-db
+      DB_PORT: 5432
+      DB_USER: openmetadata_user
+      DB_USER_PASSWORD: openmetadata_password
+      OM_DATABASE: openmetadata_db
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
+      ELASTICSEARCH_SCHEME: http
+      SEARCH_TYPE: elasticsearch
+    depends_on:
+      openmetadata-db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - immo_net
+
+  # ---------------------------------------------------------------------------
+  # 5. openmetadata-server — the application and the UI. Port 8585 is the one
+  #    the reader opens; 8586 is the admin and healthcheck port, kept internal.
+  # ---------------------------------------------------------------------------
+  openmetadata-server:
+    container_name: openmetadata_server
+    image: docker.getcollate.io/openmetadata/server:1.13.4@sha256:99b48e01b941efb6ace3c742fdf074fb173734739b4c57c50ee4959f49d527f8
+    restart: unless-stopped
+    environment:
+      DB_DRIVER_CLASS: org.postgresql.Driver
+      DB_SCHEME: postgresql
+      DB_HOST: openmetadata-db
+      DB_PORT: 5432
+      DB_USER: openmetadata_user
+      DB_USER_PASSWORD: openmetadata_password
+      OM_DATABASE: openmetadata_db
+      ELASTICSEARCH_HOST: elasticsearch
+      ELASTICSEARCH_PORT: 9200
+      ELASTICSEARCH_SCHEME: http
+      SEARCH_TYPE: elasticsearch
+      # How the ingestion container reaches the API, and how the server reaches
+      # Airflow to trigger pipelines. Both names resolve on immo_net.
+      SERVER_HOST_API_URL: http://openmetadata-server:8585/api
+      PIPELINE_SERVICE_CLIENT_ENDPOINT: http://openmetadata-ingestion:8080
+      AIRFLOW_USERNAME: admin
+      AIRFLOW_PASSWORD: admin
+    ports:
+      - "8585:8585"
+    depends_on:
+      openmetadata-db:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      openmetadata-migrate:
+        condition: service_completed_successfully
+    networks:
+      - immo_net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8586/healthcheck"]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+
+  # ---------------------------------------------------------------------------
+  # 6. openmetadata-ingestion — Airflow, embedded. Runs the connectors that read
+  #    PostgreSQL metadata and the dbt manifest, and executes the quality tests.
+  #
+  #    This component is what closes the Airflow/Dagster question in ADR-001:
+  #    orchestration is demonstrated without adding a service.
+  #
+  #    Note the variable names: inside this container they are DB_*, but they
+  #    point at Airflow's own database (airflow_db), not the catalog's.
+  # ---------------------------------------------------------------------------
+  openmetadata-ingestion:
+    container_name: openmetadata_ingestion
+    image: docker.getcollate.io/openmetadata/ingestion:1.13.4@sha256:4d2cc31946ce2dbd4211209ea6433a6912a8f7b98a7bc8286d3a1bbacfda1fce
+    restart: unless-stopped
+    entrypoint: /bin/bash
+    command:
+      - "/opt/airflow/ingestion_dependency.sh"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+      AIRFLOW__OPENMETADATA_AIRFLOW_APIS__DAG_GENERATED_CONFIGS: "/opt/airflow/dag_generated_configs"
+      DB_SCHEME: postgresql+psycopg2
+      DB_HOST: openmetadata-db
+      DB_PORT: 5432
+      AIRFLOW_DB: airflow_db
+      DB_USER: airflow_user
+      DB_PASSWORD: airflow_pass
+    ports:
+      - "8080:8080"
+    volumes:
+      - ingestion-dag-configs:/opt/airflow/dag_generated_configs
+      - ingestion-dags:/opt/airflow/dags
+      - ingestion-tmp:/tmp
+    depends_on:
+      openmetadata-db:
+        condition: service_healthy
+      openmetadata-server:
+        condition: service_started
+    networks:
+      - immo_net

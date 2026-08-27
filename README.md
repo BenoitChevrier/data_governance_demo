@@ -10,16 +10,47 @@ typed in for the demo.
 
 ---
 
+## Requirements
+
+Measured on 2026-08-27, Windows 11 with Docker Desktop on the WSL2 backend,
+Docker constrained to 6 GB and 4 vCPUs. Figures are observed, not quoted from
+vendor documentation.
+
+| | |
+|---|---|
+| **Docker memory** | **6 GB minimum.** The stack settles at **4.6 GiB**, leaving ~1.2 GiB of headroom. |
+| **vCPUs** | 4 |
+| **Disk** | **~11.7 GB of images**, of which 7.4 GB is the ingestion image alone |
+| **Startup** | **~70 s** from `docker compose up` to both UIs answering |
+
+```
+docker compose up -d
+```
+
+- Catalog UI — http://localhost:8585
+- Airflow — http://localhost:8080
+
+**If it does not fit in 6 GB**, the first lever is the Elasticsearch heap:
+lower `ES_JAVA_OPTS` from `-Xms1024m -Xmx1024m` to `512m` in
+[docker-compose.yml](docker-compose.yml). Elasticsearch is the second heaviest
+service; the ingestion container is the heaviest, and it is not tunable the
+same way.
+
+**On Windows**, Docker memory is set in `%USERPROFILE%\.wslconfig`, not in the
+Docker Desktop settings panel — the slider is read-only on the WSL2 backend.
+After changing it and running `wsl --shutdown`, published ports can be left
+bound by a stale relay: `docker compose down && docker compose up -d` clears it.
+
 ## Status
 
-**Under construction — Sprint 0.** Version 1.0 is due on **16 September 2026**.
+**Under construction — Sprint 0 complete.** Version 1.0 is due on **16 September 2026**.
 
 This repository has been public since day one, construction included. The
 commit history is part of what is being shown.
 
 | Sprint | Window | Focus | Status |
 |---|---|---|---|
-| 0 | 26 → 30 Aug | Docker foundation, proof of startup | 🚧 in progress |
+| 0 | 26 → 30 Aug | Docker foundation, proof of startup | ✅ done |
 | 1 | 31 Aug → 6 Sep | Data extraction, PostgreSQL, dbt, tests | upcoming |
 | 2 | 7 → 13 Sep | Governance and lineage in the catalog | upcoming |
 | 3 | 14 → 16 Sep | CI, documentation, release | upcoming |
@@ -35,11 +66,6 @@ commit history is part of what is being shown.
 
 The data foundation — real open data rather than a synthetic dataset — is
 documented in [ADR-002](docs/adr/ADR-002-data-foundation.md).
-
-## Requirements
-
-To be measured and recorded here at the end of Sprint 0: required Docker memory
-allocation, observed cold-start time.
 
 ## Data
 
