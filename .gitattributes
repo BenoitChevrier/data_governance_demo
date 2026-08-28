@@ -17,3 +17,15 @@
 *.pdf  binary
 *.xlsx binary
 *.parquet binary
+
+# Versioned open-data snapshots: stored byte for byte, never normalised.
+#
+# The rule above turns every text file into LF on checkout. Applied to these
+# files it would rewrite the CRLF line endings the provider actually serves,
+# and the committed file would no longer match the SHA-256 published beside it
+# — which is the whole point of a verifiable snapshot.
+#
+# -text disables end-of-line conversion while keeping the files diffable and
+# viewable on GitHub, unlike the stronger `binary`.
+data/snapshots/*.csv    -text
+data/snapshots/*.sha256 -text

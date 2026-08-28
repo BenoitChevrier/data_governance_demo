@@ -14,8 +14,8 @@ authors = [{ name = "Benoît Chevrier" }]
 # Runtime dependencies: deliberately minimal at Sprint 0.
 # Each one is added when a module actually uses it, never ahead of time.
 dependencies = [
-    "faker>=30.0",           # synthetic contact-field overlay — Sprint 1
-    "psycopg[binary]>=3.2",  # loading into PostgreSQL (bronze) — Sprint 1
+    "requests>=2.32",        # open data extraction over HTTP — Sprint 1
+    "pandas>=2.2",           # snapshot validation and quality profiling — Sprint 1
 ]
 
 [project.optional-dependencies]
