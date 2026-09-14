@@ -10,15 +10,19 @@ test, excluded from the default run.
 """
 
 import hashlib
+import json
 from unittest.mock import patch
 
 from immo_gov.extract import (
     _ensure_directory,
     _normalize_dataset_id,
+    build_manifest_entry,
     check_csv_content,
     compute_sha256,
+    describe_csv,
     extract_snapshot,
     make_URL,
+    update_manifest,
     write_csv,
     write_hash,
 )
@@ -149,31 +153,39 @@ def test_ensure_directory(tmp_path):
 
 
 def test_extract_snapshot_success(tmp_path):
-    dataset_id = "parc/immobilier"
-    csv_bytes = b"col1;col2\n1;2"
+    """End to end, offline: only the two network calls are replaced.
 
-    # Mocks
+    Validation, hashing, both writes and the manifest all run for real against
+    tmp_path. Mocking them as well would assert that extract_snapshot calls the
+    right functions while proving that none of them does the right thing.
+    """
+    dataset_id = "parc/immobilier"
+    csv_bytes = _fake_csv(rows=2_001)
+
     with (
         patch("immo_gov.extract.get_csv_from_api", return_value=csv_bytes) as mock_get,
-        patch("immo_gov.extract.check_csv_content", return_value=True) as mock_check,
-        patch("immo_gov.extract.compute_sha256", return_value="ABC123") as mock_hash,
-        patch("immo_gov.extract.write_csv") as mock_write_csv,
-        patch("immo_gov.extract.write_hash") as mock_write_hash,
+        patch(
+            "immo_gov.extract.fetch_dataset_metadata",
+            return_value={"licence": "Open Licence 2.0"},
+        ),
     ):
         result = extract_snapshot(dataset_id, tmp_path)
 
-        # Vérifications
-        assert result == 0
-        mock_get.assert_called_once_with(dataset_id)
-        mock_check.assert_called_once_with(csv_bytes)
-        mock_hash.assert_called_once_with(csv_bytes)
+    assert result == 0
+    mock_get.assert_called_once_with(dataset_id)
 
-        # Chemins attendus
-        expected_csv = tmp_path / "parc_immobilier.csv"
-        expected_hash = tmp_path / "parc_immobilier.sha256"
+    # The slash in the dataset id must not create a subdirectory.
+    csv_path = tmp_path / "parc_immobilier.csv"
+    hash_path = tmp_path / "parc_immobilier.sha256"
+    manifest_path = tmp_path / "manifest.json"
+    assert csv_path.read_bytes() == csv_bytes
+    assert hash_path.read_text(encoding="utf-8").strip() == hashlib.sha256(csv_bytes).hexdigest()
 
-        mock_write_csv.assert_called_once_with(expected_csv, csv_bytes)
-        mock_write_hash.assert_called_once_with(expected_hash, "ABC123")
+    entry = json.loads(manifest_path.read_text(encoding="utf-8"))["snapshots"][dataset_id]
+    assert entry["file"] == "parc_immobilier.csv"
+    assert entry["sha256"] == hashlib.sha256(csv_bytes).hexdigest()
+    assert entry["rows"] == 2_001
+    assert entry["source"]["licence"] == "Open Licence 2.0"
 
 
 def test_extract_snapshot_invalid_csv(tmp_path):
@@ -192,3 +204,113 @@ def test_extract_snapshot_no_csv(tmp_path):
     with patch("immo_gov.extract.get_csv_from_api", return_value=None):
         result = extract_snapshot(dataset_id, tmp_path)
         assert result == 1
+
+
+# --- provenance manifest -----------------------------------------------------
+# The digest proves a file was not altered. The manifest says what the file is,
+# where it came from and when — which is what makes the digest worth anything.
+
+
+def test_describe_csv_counts_columns_and_data_rows() -> None:
+    assert describe_csv(_fake_csv(columns=5, rows=42)) == (5, 42)
+
+
+def test_describe_csv_strips_the_byte_order_mark() -> None:
+    """The provider prefixes its export with a UTF-8 BOM.
+
+    Decoded as plain utf-8 the first column would be named "﻿col_0", and
+    every lookup by name on it would silently miss.
+    """
+    payload = b"\xef\xbb\xbf" + _fake_csv(columns=3, rows=1)
+    columns, rows = describe_csv(payload)
+    assert (columns, rows) == (3, 1)
+    header = payload.decode("utf-8-sig").splitlines()[0]
+    assert header.split(";")[0] == "col_0"
+
+
+def test_manifest_entry_carries_what_a_third_party_needs_to_verify() -> None:
+    payload = _fake_csv(columns=EXPORTED_COLUMNS, rows=17)
+    entry = build_manifest_entry(
+        dataset_id="parc_immobilier_etat_20231231",
+        filename="parc_immobilier_etat_20231231.csv",
+        csv_bytes=payload,
+        source_metadata={"licence": "Open Licence 2.0", "records_count": 17_007},
+        extracted_at="2026-08-29T09:00:00+00:00",
+    )
+    assert entry["sha256"] == hashlib.sha256(payload).hexdigest()
+    assert entry["bytes"] == len(payload)
+    assert entry["columns"] == EXPORTED_COLUMNS
+    assert entry["rows"] == 17
+    assert entry["extracted_at"] == "2026-08-29T09:00:00+00:00"
+    assert entry["source_url"].endswith("parc_immobilier_etat_20231231/exports/csv?delimiter=%3B")
+    assert entry["source"]["licence"] == "Open Licence 2.0"
+
+
+def test_manifest_entry_keeps_both_row_counts_apart() -> None:
+    """Ours and the provider's are recorded separately, never reconciled.
+
+    A divergence between the two is a governance signal — a scope change at the
+    source, or a truncated download. Collapsing them into one number would hide
+    exactly the thing worth seeing.
+    """
+    entry = build_manifest_entry(
+        dataset_id="d",
+        filename="d.csv",
+        csv_bytes=_fake_csv(rows=10),
+        source_metadata={"records_count": 17_007},
+        extracted_at="2026-08-29T09:00:00+00:00",
+    )
+    assert entry["rows"] == 10
+    assert entry["source"]["records_count"] == 17_007
+
+
+def test_update_manifest_creates_the_file_when_absent(tmp_path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    update_manifest(manifest_path, {"dataset_id": "a", "sha256": "aaa"})
+    written = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert written["snapshots"]["a"]["sha256"] == "aaa"
+
+
+def test_update_manifest_adds_a_second_entry_without_losing_the_first(tmp_path) -> None:
+    """Each vintage is extracted by its own command, so the manifest accumulates."""
+    manifest_path = tmp_path / "manifest.json"
+    update_manifest(manifest_path, {"dataset_id": "a", "sha256": "aaa"})
+    update_manifest(manifest_path, {"dataset_id": "b", "sha256": "bbb"})
+    written = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert set(written["snapshots"]) == {"a", "b"}
+
+
+def test_update_manifest_replaces_an_entry_on_re_extraction(tmp_path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    update_manifest(manifest_path, {"dataset_id": "a", "sha256": "old"})
+    update_manifest(manifest_path, {"dataset_id": "a", "sha256": "new"})
+    written = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert written["snapshots"]["a"]["sha256"] == "new"
+    assert len(written["snapshots"]) == 1
+
+
+def test_update_manifest_survives_a_corrupted_file(tmp_path) -> None:
+    """A half-written manifest must not block the next extraction."""
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text("{ this is not json", encoding="utf-8")
+    update_manifest(manifest_path, {"dataset_id": "a", "sha256": "aaa"})
+    written = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert written["snapshots"]["a"]["sha256"] == "aaa"
+
+
+# --- cross-OS line endings ---------------------------------------------------
+# Windows text mode writes CRLF, macOS and Linux write LF. The .sha256 sidecars
+# are stored byte for byte, so without pinned line endings the same extraction
+# would produce a different file depending on who ran it.
+
+
+def test_hash_sidecar_is_written_with_lf_on_every_platform(tmp_path) -> None:
+    hash_path = tmp_path / "x.sha256"
+    write_hash(hash_path, "abc")
+    assert hash_path.read_bytes() == b"abc\n"
+
+
+def test_manifest_is_written_with_lf_on_every_platform(tmp_path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    update_manifest(manifest_path, {"dataset_id": "a", "sha256": "aaa"})
+    assert b"\r" not in manifest_path.read_bytes()

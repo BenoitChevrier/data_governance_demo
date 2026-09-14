@@ -57,7 +57,7 @@ commit history is part of what is being shown.
 
 ## Stack
 
-- **OpenMetadata 1.12.x** — catalog, glossary, classification, quality
+- **OpenMetadata 1.13.4** — catalog, glossary, classification, quality
   ([ADR-001](docs/adr/ADR-001-catalog-choice.md): why it, and not DataHub)
 - **PostgreSQL** — *bronze* layer
 - **dbt-core** — *bronze → silver → gold*, and the **source of the lineage**

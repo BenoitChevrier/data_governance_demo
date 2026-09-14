@@ -6,13 +6,17 @@ depends on a third-party API being up is a demo that fails at the reader's
 machine, not at ours (see ADR-001).
 
 Each snapshot is written alongside the SHA-256 of its bytes, so that anyone can
-re-download the source and check that the versioned file was not altered.
+re-download the source and check that the versioned file was not altered, and
+recorded in a shared manifest.json carrying its provenance: source URL,
+extraction date, licence, publisher, and both our row count and the provider's.
 """
 
 import argparse
 import csv
 import hashlib
+import json
 import sys
+from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 
@@ -28,6 +32,11 @@ EXPECTED_COLUMNS = 28
 # catch a truncated body served with HTTP 200.
 MIN_DATA_ROWS = 2_000
 
+# Provenance document, shared by every snapshot in the directory. One file
+# rather than one per dataset: provenance is easier to audit when it is in a
+# single place, and the reader has one thing to open.
+MANIFEST_NAME = "manifest.json"
+
 
 def make_URL(dataset_id: str, query_params: str | None = None) -> str:
     """Build the CSV export URL for a dataset."""
@@ -36,6 +45,12 @@ def make_URL(dataset_id: str, query_params: str | None = None) -> str:
     if query_params is None:
         query_params = "?delimiter=%3B"
     return BASE_URL + dataset_id + url_query + query_params
+
+
+def make_metadata_url(dataset_id: str) -> str:
+    """Build the dataset metadata URL: licence, publisher, row count, modified date."""
+    BASE_URL = "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/"
+    return BASE_URL + dataset_id.rstrip("/")
 
 
 def _normalize_dataset_id(dataset_id: str) -> str:
@@ -109,7 +124,10 @@ def compute_sha256(data: bytes) -> str:
 
 def write_hash(path: Path, sha256_hash: str) -> None:
     """Write the digest to its sidecar .sha256 file."""
-    with open(path, "w", encoding="utf-8") as f:
+    # newline="\n" pins LF on every platform. Without it, Windows text mode
+    # writes CRLF, and since .sha256 files are stored byte for byte (-text),
+    # re-running the extraction on another OS would show a spurious change.
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(sha256_hash + "\n")
 
 
@@ -130,6 +148,21 @@ def _ensure_directory(path: str | Path) -> Path | None:
         return None
 
 
+def describe_csv(csv_bytes: bytes) -> tuple[int, int]:
+    """Return (column count, data row count) for a semicolon-delimited CSV.
+
+    Decoded with utf-8-sig: the provider prefixes the file with a UTF-8 BOM,
+    and without it the first column would be named "﻿code_chorus".
+
+    Rows are counted through the csv reader rather than by counting lines, so
+    that a quoted field containing a newline counts as one record, not two.
+    """
+    f = StringIO(csv_bytes.decode("utf-8-sig"))
+    reader = csv.reader(f, delimiter=";")
+    header = next(reader)
+    return len(header), sum(1 for _ in reader)
+
+
 def check_csv_content(csv_bytes: bytes) -> bool:
     """Reject a payload that cannot be a valid snapshot of this dataset.
 
@@ -140,11 +173,7 @@ def check_csv_content(csv_bytes: bytes) -> bool:
         print("The CSV is empty.")
         return False
     try:
-        f = StringIO(csv_bytes.decode("utf-8"))
-        reader = csv.reader(f, delimiter=";")
-        first_row = next(reader)
-        columns_count = len(first_row)
-        rows_count = sum(1 for line in f)
+        columns_count, rows_count = describe_csv(csv_bytes)
         if columns_count < EXPECTED_COLUMNS:
             print(f"The CSV has {columns_count} columns, expected at least {EXPECTED_COLUMNS}.")
             return False
@@ -155,6 +184,74 @@ def check_csv_content(csv_bytes: bytes) -> bool:
     except Exception as e:
         print("Error while reading the CSV:", e)
         return False
+
+
+def fetch_dataset_metadata(dataset_id: str) -> dict:
+    """Fetch what the provider says about the dataset: licence, publisher, counts.
+
+    Degrades to an empty dict rather than failing the extraction. Provenance is
+    worth recording, but a snapshot whose bytes are hashed and verifiable is
+    still useful without the provider's own description of it.
+    """
+    try:
+        response = requests.get(make_metadata_url(dataset_id), timeout=30)
+        response.raise_for_status()
+        metas = response.json().get("metas", {}).get("default", {})
+    except (requests.exceptions.RequestException, ValueError) as e:
+        print("Warning: could not read the dataset metadata:", e)
+        return {}
+    return {
+        "title": metas.get("title"),
+        "publisher": metas.get("publisher"),
+        "licence": metas.get("license"),
+        "records_count": metas.get("records_count"),
+        "modified": metas.get("modified"),
+    }
+
+
+def build_manifest_entry(
+    dataset_id: str,
+    filename: str,
+    csv_bytes: bytes,
+    source_metadata: dict | None = None,
+    extracted_at: str | None = None,
+) -> dict:
+    """Describe one snapshot: what it is, where it came from, and how to verify it.
+
+    `extracted_at` is a parameter rather than a call to the clock inside the
+    function. A function that reads the current time cannot be asserted against
+    an expected value; one that receives it can.
+    """
+    columns, rows = describe_csv(csv_bytes)
+    return {
+        "dataset_id": dataset_id,
+        "file": filename,
+        "source_url": make_URL(_normalize_dataset_id(dataset_id)),
+        "extracted_at": extracted_at or datetime.now(UTC).isoformat(timespec="seconds"),
+        "sha256": compute_sha256(csv_bytes),
+        "bytes": len(csv_bytes),
+        "columns": columns,
+        # Counted by us. The provider's own figure is kept under "source" so
+        # that a divergence between the two is visible rather than resolved.
+        "rows": rows,
+        "source": source_metadata or {},
+    }
+
+
+def update_manifest(manifest_path: Path, entry: dict) -> None:
+    """Insert or replace one entry in the shared manifest, keyed by dataset id."""
+    manifest: dict = {"snapshots": {}}
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except ValueError as e:
+            print("Warning: the existing manifest is unreadable, rewriting it:", e)
+    manifest.setdefault("snapshots", {})[entry["dataset_id"]] = entry
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def extract_snapshot(dataset_id: str, dir_path: Path) -> int:
@@ -171,6 +268,14 @@ def extract_snapshot(dataset_id: str, dir_path: Path) -> int:
         print("SHA-256:", hash_value)
         write_csv(csv_path, csv_bytes)
         write_hash(hash_path, hash_value)
+        entry = build_manifest_entry(
+            dataset_id=dataset_id,
+            filename=csv_path.name,
+            csv_bytes=csv_bytes,
+            source_metadata=fetch_dataset_metadata(dataset_id),
+        )
+        update_manifest(dir_path / MANIFEST_NAME, entry)
+        print(f"Manifest updated: {entry['rows']} rows, {entry['columns']} columns.")
     else:
         print("No CSV retrieved.")
         return 1

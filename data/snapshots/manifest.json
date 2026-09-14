@@ -1,0 +1,38 @@
+{
+  "snapshots": {
+    "parc_immobilier_etat_20221231": {
+      "bytes": 6612295,
+      "columns": 28,
+      "dataset_id": "parc_immobilier_etat_20221231",
+      "extracted_at": "2026-08-29T09:46:49+00:00",
+      "file": "parc_immobilier_etat_20221231.csv",
+      "rows": 16895,
+      "sha256": "7a4f981c6220324f91692b8871d53eb68cee6cf9fc5f6864bbde3988d40145f6",
+      "source": {
+        "licence": "Licence Ouverte v2.0 (Etalab)",
+        "modified": "2024-12-20T09:22:04.246000+00:00",
+        "publisher": "DGFIP",
+        "records_count": 16895,
+        "title": "Parc de l'immobilier de l'Etat au 31/12/2022"
+      },
+      "source_url": "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/parc_immobilier_etat_20221231/exports/csv?delimiter=%3B"
+    },
+    "parc_immobilier_etat_20231231": {
+      "bytes": 6654646,
+      "columns": 28,
+      "dataset_id": "parc_immobilier_etat_20231231",
+      "extracted_at": "2026-08-29T09:46:52+00:00",
+      "file": "parc_immobilier_etat_20231231.csv",
+      "rows": 17007,
+      "sha256": "d4a33ac7238b5e65b65280dfe56a091350aa67b6e12056a1fefc84b78f06ca26",
+      "source": {
+        "licence": "Licence Ouverte v2.0 (Etalab)",
+        "modified": "2024-12-20T10:33:56.463000+00:00",
+        "publisher": "DGFIP",
+        "records_count": 17007,
+        "title": "Parc de l'immobilier de l'Etat au 31/12/2023"
+      },
+      "source_url": "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/parc_immobilier_etat_20231231/exports/csv?delimiter=%3B"
+    }
+  }
+}
