@@ -43,7 +43,7 @@ bound by a stale relay: `docker compose down && docker compose up -d` clears it.
 
 ## Status
 
-**Under construction — Sprint 0 complete.** Version 1.0 is due on **16 September 2026**.
+**Under construction — Sprint 0 complete.** Version 1.0 is due on **30 September 2026**.
 
 This repository has been public since day one, construction included. The
 commit history is part of what is being shown.
@@ -51,9 +51,9 @@ commit history is part of what is being shown.
 | Sprint | Window | Focus | Status |
 |---|---|---|---|
 | 0 | 26 → 30 Aug | Docker foundation, proof of startup | ✅ done |
-| 1 | 31 Aug → 6 Sep | Data extraction, PostgreSQL, dbt, tests | upcoming |
-| 2 | 7 → 13 Sep | Governance and lineage in the catalog | upcoming |
-| 3 | 14 → 16 Sep | CI, documentation, release | upcoming |
+| 1 | 14 → 18 Sep | Data extraction, PostgreSQL, dbt, tests | 🚧 in progress |
+| 2 | 21 → 25 Sep | Governance and lineage in the catalog | upcoming |
+| 3 | 28 → 30 Sep | CI, documentation, release | upcoming |
 
 ## Stack
 
@@ -75,7 +75,7 @@ the script that produced them.
 
 | Source | Content | Size |
 |---|---|---|
-| **French State real-estate portfolio** — DGFiP | 33,900 assets, 29 columns, 2022 and 2023 vintages | 12.7 MB |
+| **French State real-estate portfolio** — DGFiP | 33,902 assets, 28 columns, 2022 and 2023 vintages | 12.7 MB |
 | **Géorisques** — BRGM | Exposure to natural hazards, by INSEE municipality code | tens of KB |
 
 Only the **contact fields** (steward, email) are synthetic: open data is
@@ -83,9 +83,11 @@ de-identified by construction and carries none. They are flagged as fabricated
 in the catalog itself — the provenance of each column is part of what is
 governed.
 
-This data is **incomplete**, and that is deliberate: 78 % of assets have no
-energy consumption figure, 14 % carry an aberrant construction year, and
-Ministry of Defence assets are redacted by the publisher. The project does not
+This data is **incomplete**, and that is deliberate: 78 to 80 % of assets have
+no energy consumption figure, about 5 % carry `0001` as their construction year,
+and more than a quarter of the portfolio — nearly all of Foreign Affairs, and
+part of Justice, Culture and Education — is redacted by the publisher, with site
+names replaced and coordinates removed. The project does not
 paper over these defects — **it measures them, the tests catch them, and the
 catalog reports on them.** A clean dataset would demonstrate no governance at
 all.

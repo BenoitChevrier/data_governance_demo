@@ -64,7 +64,7 @@ Three published vintages, measured on 2026-08-26:
 | 2022-12-31 | **16,895** | **6.31 MB** |
 | 2023-12-31 | **17,007** | **6.35 MB** |
 
-**29 columns**, including those that directly carry the project's objects:
+**28 columns** in the CSV export — the catalog advertises 29 fields, but `point_geo` is computed and not exported — including those that directly carry the project's objects:
 
 | v1.0 core requirement | Column(s) |
 |---|---|
@@ -73,7 +73,7 @@ Three published vintages, measured on 2026-08-26:
 | Stewards | `libelle_gestionnaire`, `type_gestionnaire` |
 | Géorisques join | `code_insee`, `latitude`, `longitude` |
 | Asset-management attributes | `etat_de_sante`, `erp`, `type_de_chauffage`, `annee_de_construction`, `fonction`, `type` |
-| Historisation | `date_de_reference` plus three vintages |
+| Historisation | Three published vintages. **Not** `date_de_reference`, which reads `2021-12-31` in both the 2022 and 2023 exports (see §6) |
 
 ### Measured completeness — the heart of the decision
 
@@ -91,8 +91,9 @@ Three published vintages, measured on 2026-08-26:
 
 Three further anomalies, observed and exploitable:
 
-1. **Redaction of Ministry of Defence assets** — scrambled identifiers, blanked address, municipality and coordinates, label replaced by *"Bien contrôlé par le ministère des Armées"*. The publisher applies a confidentiality policy that is **visible in the data**. The classification demonstration documents a real policy instead of simulating one.
-2. **Scope break between vintages** — 110,906 rows in 2021, 16,895 in 2022. A gap of that magnitude within the same reference dataset is exactly what a Data Office must detect, explain and trace.
+1. **Redaction by the publisher, across several ministries** — in both retained vintages, 26.5 % (2022) and 26.9 % (2023) of assets carry the label *"Bien contrôlé par le ministère de …"* in place of both `designation_site` and `designation_batiment_terrain`. The policy is concentrated: in 2023 it covers 99 % of Foreign Affairs assets, 34 % of Justice, 19 % of Culture and 10 % of Education. Coordinates are removed on 91 % of redacted assets, against 33 % elsewhere. Addresses and municipalities are **not** systematically blanked (57–64 % empty, against 40–45 %), and non-alphanumeric identifiers are not a redaction marker (90 % against 45 %). The publisher applies a confidentiality policy that is **visible in the data**; the classification demonstration documents it instead of simulating one.
+   *Correction, 2026-09-14: an earlier version of this ADR attributed the redaction to Ministry of Defence assets. That was extrapolated from a 2021 sample; the 2022 and 2023 vintages contain no Defence assets at all (see anomaly 2).*
+2. **Scope break between vintages** — 110,906 rows in 2021, 16,895 in 2022. The main cause is measurable: the 2021 vintage held **74,804 Ministry of Defence assets**, the 2022 vintage holds none. Their withdrawal accounts for about 80 % of the 94,011-row drop; the rest comes mainly from *Divers*, *Economie – Finances* and *Biens remis au Domaine*, which disappear or nearly disappear, and a smaller Education perimeter. A gap of that magnitude within the same reference dataset is exactly what a Data Office must detect, explain and trace — and this one is explained.
 3. **`annee_de_construction` typed as text**, with `"0001"` used as a filler value. A textbook typing defect to fix in the *silver* layer.
 
 ### Rejected options
@@ -111,7 +112,7 @@ Three further anomalies, observed and exploitable:
 
 ## 5. Decision
 
-**Foundation**: the **French State real-estate portfolio, vintages 2022-12-31 and 2023-12-31** — 33,902 rows, 29 columns, **12.66 MB**, captured as versioned extracts in the repository.
+**Foundation**: the **French State real-estate portfolio, vintages 2022-12-31 and 2023-12-31** — 33,902 rows, 28 columns, **12.66 MB**, captured as versioned extracts in the repository.
 
 **Second dataset**: a **Géorisques snapshot**, joined on `code_insee`. The v1 API was verified live on 2026-08-26, requires no token, and is capped at 1,000 requests per minute. It is captured as a frozen snapshot, per the principle set in ADR-001: no network call at startup.
 
@@ -121,14 +122,14 @@ Three further anomalies, observed and exploitable:
 
 ### On personal data
 
-Checked across all 29 columns: **no personal data**. `libelle_gestionnaire` and `libelle_proprietaire` denote administrative entities (`DEFENSE - BDD : PHALSBOURG`, `ETAT DOMAINE PUBLIC`), not natural persons.
+Checked across all 28 exported columns: **no personal data**. `libelle_gestionnaire` and `libelle_proprietaire` denote administrative entities (`DEFENSE - BDD : PHALSBOURG`, `ETAT DOMAINE PUBLIC`), not natural persons.
 
 The project adopts a **two-tier classification** rather than a single PII tag:
 
 | Tier | Fields | Rationale |
 |---|---|---|
 | `PII` | fabricated contact fields | Personal data under GDPR — synthetic, hence no legal exposure |
-| `Confidential` | `adresse`, `latitude`, `longitude`, `designation_site` | The publisher redacts these itself on defence sites: sensitivity is established by the source |
+| `Confidential` | `designation_site`, `designation_batiment_terrain`, `latitude`, `longitude` | The publisher replaces both designations and removes coordinates on the redacted quarter of the portfolio: sensitivity is established by the source. `adresse` remains a quasi-identifier, but the publisher does not redact it systematically, so it is not listed on that ground |
 
 The distinction is deliberate: it sets up the question of re-identification through cross-referencing, which the CNIL addresses in its June 2024 recommendations to open-data publishers.
 
@@ -143,7 +144,7 @@ Open Licence / Etalab 2.0 for both datasets — no share-alike clause, no incomp
 ### Favourable
 
 - Owners and stewards become **verifiable facts** rather than inventions.
-- Quality tests stop being circular: they rest on measured defects — 14.3 % aberrant dates, 78 % missing consumption figures.
+- Quality tests stop being circular: they rest on measured defects — 78 to 80 % missing consumption figures, about 5 % `0001` construction years, a quarter of the portfolio redacted.
 - The energy intensity KPI is computed **directly** from source columns.
 - Confidentiality classification documents a **real policy**, applied by the publisher.
 - Historisation rests on published vintages, not simulated ones.
@@ -151,7 +152,7 @@ Open Licence / Etalab 2.0 for both datasets — no share-alike clause, no incomp
 
 ### Accepted downsides
 
-- **The data dates from 2022 and 2023.** These are the most recent published vintages, released 2024-12-20, and `date_de_reference` is a column of the dataset: the lag is explicit and verifiable, not concealed.
+- **The data dates from 2022 and 2023.** These are the most recent published vintages, released 2024-12-20. The lag is stated by the dataset titles and recorded in the snapshot manifest — but **not** by `date_de_reference`: that column reads `2021-12-31` in both the 2022 and 2023 exports (verified 2026-09-14). The vintage is therefore taken from the dataset identifier at load time, and the stale reference date is kept visible as a data-quality finding rather than silently overwritten.
 - **Only ~3,000 assets feed the complete KPI** on the 2023 vintage. That is the reference dataset's real completeness rate. It is measured and displayed rather than worked around.
 - The repository carries ~13 MB of data. Acceptable, but adding a third vintage would push it past the target.
 - A synthetic component remains on the contact fields. The seam is documented in the catalog — an act of provenance traceability, not a concealed compromise.
