@@ -57,6 +57,9 @@ select = [
 testpaths = ["tests"]
 markers = ["integration: requires the postgres-immo container"]
 addopts = [
+    # Integration tests need the postgres-immo container, which CI does not have.
+    # Run them explicitly with:  pytest -m integration --no-cov
+    "-m", "not integration",
     "--cov=immo_gov",
     "--cov-report=term-missing",
     # The 60 % threshold is the Sprint 1 definition of done turned into an
