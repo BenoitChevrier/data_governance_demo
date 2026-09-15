@@ -12,30 +12,24 @@ extraction date, licence, publisher, and both our row count and the provider's.
 """
 
 import argparse
-import csv
-import hashlib
-import json
 import sys
-from datetime import UTC, datetime
-from io import StringIO
 from pathlib import Path
-
+import json
+from datetime import UTC, datetime
 import requests
 
-# Number of columns in the CSV export, measured against the live endpoint on
-# 2026-08-28. The catalog advertises 29 fields, but point_geo is a computed geo
-# field that is not exported, so the file carries 28.
-EXPECTED_COLUMNS = 28
+from immo_gov.snapshots import (
+    compute_sha256, 
+    describe_csv, 
+    check_csv_content,
+)
 
-# The published vintages hold roughly 17,000 rows each. The floor is set well
-# below that to tolerate a change of scope at the source, but high enough to
-# catch a truncated body served with HTTP 200.
-MIN_DATA_ROWS = 2_000
 
 # Provenance document, shared by every snapshot in the directory. One file
 # rather than one per dataset: provenance is easier to audit when it is in a
 # single place, and the reader has one thing to open.
 MANIFEST_NAME = "manifest.json"
+
 
 
 def make_URL(dataset_id: str, query_params: str | None = None) -> str:
@@ -117,11 +111,6 @@ def write_csv(path: Path, data: bytes) -> None:
         f.write(data)
 
 
-def compute_sha256(data: bytes) -> str:
-    """Return the SHA-256 digest of the given bytes."""
-    return hashlib.sha256(data).hexdigest()
-
-
 def write_hash(path: Path, sha256_hash: str) -> None:
     """Write the digest to its sidecar .sha256 file."""
     # newline="\n" pins LF on every platform. Without it, Windows text mode
@@ -146,67 +135,6 @@ def _ensure_directory(path: str | Path) -> Path | None:
     except NotADirectoryError as e:
         print("[NotADirectoryError]", e)
         return None
-
-
-def describe_csv(csv_bytes: bytes) -> tuple[int, int]:
-    """Return (column count, data row count) for a semicolon-delimited CSV.
-
-    Decoded with utf-8-sig: the provider prefixes the file with a UTF-8 BOM,
-    and without it the first column would be named "﻿code_chorus".
-
-    Rows are counted through the csv reader rather than by counting lines, so
-    that a quoted field containing a newline counts as one record, not two.
-    """
-    f = StringIO(csv_bytes.decode("utf-8-sig"))
-    reader = csv.reader(f, delimiter=";")
-    header = next(reader)
-    return len(header), sum(1 for _ in reader)
-
-
-def check_csv_content(csv_bytes: bytes) -> bool:
-    """Reject a payload that cannot be a valid snapshot of this dataset.
-
-    This is the data contract with the provider: it does not check that our
-    code is correct, it checks that the source has not changed shape under us.
-    """
-    if not csv_bytes:
-        print("The CSV is empty.")
-        return False
-    try:
-        columns_count, rows_count = describe_csv(csv_bytes)
-        if columns_count < EXPECTED_COLUMNS:
-            print(f"The CSV has {columns_count} columns, expected at least {EXPECTED_COLUMNS}.")
-            return False
-        if rows_count <= MIN_DATA_ROWS:
-            print(f"The CSV has {rows_count} data rows, expected more than {MIN_DATA_ROWS}.")
-            return False
-        return True
-    except Exception as e:
-        print("Error while reading the CSV:", e)
-        return False
-
-
-def fetch_dataset_metadata(dataset_id: str) -> dict:
-    """Fetch what the provider says about the dataset: licence, publisher, counts.
-
-    Degrades to an empty dict rather than failing the extraction. Provenance is
-    worth recording, but a snapshot whose bytes are hashed and verifiable is
-    still useful without the provider's own description of it.
-    """
-    try:
-        response = requests.get(make_metadata_url(dataset_id), timeout=30)
-        response.raise_for_status()
-        metas = response.json().get("metas", {}).get("default", {})
-    except (requests.exceptions.RequestException, ValueError) as e:
-        print("Warning: could not read the dataset metadata:", e)
-        return {}
-    return {
-        "title": metas.get("title"),
-        "publisher": metas.get("publisher"),
-        "licence": metas.get("license"),
-        "records_count": metas.get("records_count"),
-        "modified": metas.get("modified"),
-    }
 
 
 def build_manifest_entry(
@@ -254,6 +182,29 @@ def update_manifest(manifest_path: Path, entry: dict) -> None:
     )
 
 
+def fetch_dataset_metadata(dataset_id: str) -> dict:
+    """Fetch what the provider says about the dataset: licence, publisher, counts.
+
+    Degrades to an empty dict rather than failing the extraction. Provenance is
+    worth recording, but a snapshot whose bytes are hashed and verifiable is
+    still useful without the provider's own description of it.
+    """
+    try:
+        response = requests.get(make_metadata_url(dataset_id), timeout=30)
+        response.raise_for_status()
+        metas = response.json().get("metas", {}).get("default", {})
+    except (requests.exceptions.RequestException, ValueError) as e:
+        print("Warning: could not read the dataset metadata:", e)
+        return {}
+    return {
+        "title": metas.get("title"),
+        "publisher": metas.get("publisher"),
+        "licence": metas.get("license"),
+        "records_count": metas.get("records_count"),
+        "modified": metas.get("modified"),
+    }
+
+
 def extract_snapshot(dataset_id: str, dir_path: Path) -> int:
     """Download, validate and write one snapshot. Returns a process exit code."""
     filename = dataset_id.replace("/", "_")
@@ -280,7 +231,6 @@ def extract_snapshot(dataset_id: str, dir_path: Path) -> int:
         print("No CSV retrieved.")
         return 1
     return 0
-
 
 def main() -> int:
     """Parse the command line and run one extraction."""

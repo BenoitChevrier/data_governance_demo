@@ -23,6 +23,8 @@ COMMENT ON SCHEMA bronze IS 'Raw layer: open data as extracted, defects included
 COMMENT ON SCHEMA silver IS 'Cleansed layer: typed, deduplicated, normalised. Built by dbt.';
 COMMENT ON SCHEMA gold   IS 'Serving layer: KPIs exposed to the catalog. Built by dbt.';
 
+-- Section below commented out on 2026-09-15  because it is only a temporary smoke test for Sprint 0. 
+
 -- -----------------------------------------------------------------------------
 -- Sprint 0 smoke test.
 --
@@ -33,17 +35,17 @@ COMMENT ON SCHEMA gold   IS 'Serving layer: KPIs exposed to the catalog. Built b
 --
 -- To be dropped in Sprint 1, once the real bronze tables exist.
 -- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS bronze.connectivity_check (
-    id          integer PRIMARY KEY,
-    label       text        NOT NULL,
-    surface_m2  numeric(10,2),
-    checked_at  timestamptz NOT NULL DEFAULT now()
-);
+-- -- CREATE TABLE IF NOT EXISTS bronze.connectivity_check (
+--     id          integer PRIMARY KEY,
+--     label       text        NOT NULL,
+--     surface_m2  numeric(10,2),
+--     checked_at  timestamptz NOT NULL DEFAULT now()
+-- );
 
-COMMENT ON TABLE bronze.connectivity_check IS
-    'Sprint 0 smoke test for the PostgreSQL metadata connector. Temporary.';
+-- COMMENT ON TABLE bronze.connectivity_check IS
+--     'Sprint 0 smoke test for the PostgreSQL metadata connector. Temporary.';
 
-INSERT INTO bronze.connectivity_check (id, label, surface_m2) VALUES
-    (1, 'smoke test row A', 1882.00),
-    (2, 'smoke test row B',  742.50)
-ON CONFLICT (id) DO NOTHING;
+-- INSERT INTO bronze.connectivity_check (id, label, surface_m2) VALUES
+--     (1, 'smoke test row A', 1882.00),
+--     (2, 'smoke test row B',  742.50)
+-- ON CONFLICT (id) DO NOTHING;

@@ -55,6 +55,7 @@ select = [
 # --- Tests -------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integration: requires the postgres-immo container"]
 addopts = [
     "--cov=immo_gov",
     "--cov-report=term-missing",
