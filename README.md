@@ -27,8 +27,11 @@ vendor documentation.
 docker compose up -d
 ```
 
-- Catalog UI — http://localhost:8585
-- Airflow — http://localhost:8080
+- Catalog UI — http://localhost:8585, signed in as `admin@open-metadata.org` / `admin`
+- Airflow — http://localhost:8080, signed in as `admin` / `admin`
+
+These are OpenMetadata's local defaults, left unchanged on purpose: the stack
+binds to localhost and holds nothing but public open data.
 
 **If it does not fit in 6 GB**, the first lever is the Elasticsearch heap:
 lower `ES_JAVA_OPTS` from `-Xms1024m -Xmx1024m` to `512m` in

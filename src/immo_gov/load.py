@@ -1,15 +1,16 @@
 import argparse
-from datetime import datetime
-from pathlib import Path
-import json
 import csv
-from io import StringIO
+import json
 import sys
+from datetime import datetime
+from io import StringIO
+from pathlib import Path
+
 import psycopg
 from psycopg import sql
 
-
 from immo_gov.snapshots import COLUMNS, compute_sha256, describe_csv
+
 
 def _get_csv_columns(csv_bytes: bytes) -> tuple[str, ...]:
     """Return the list of column names from a semicolon-delimited CSV.
@@ -59,12 +60,18 @@ def verify_manifest(path):
     return validated_entries
 
 
-
 def verify_manifest_entry(entry) -> bool:
     """Check that the manifest entry is well-formed and self-consistent."""
     required_keys = {
-        "dataset_id", "file", "source_url", "extracted_at",
-        "sha256", "bytes", "columns", "rows", "source"
+        "dataset_id",
+        "file",
+        "source_url",
+        "extracted_at",
+        "sha256",
+        "bytes",
+        "columns",
+        "rows",
+        "source",
     }
     if not required_keys.issubset(entry.keys()):
         print(f"Manifest entry is missing required keys: {required_keys - set(entry.keys())}")
@@ -82,35 +89,31 @@ def _build_create_table(schema, table, columns):
     # Builds the column definitions for the CREATE TABLE statement
     col_defs = []
     for col in columns:
-        col_defs.append(
-            sql.SQL("{} TEXT").format(sql.Identifier(col))
-        )
+        col_defs.append(sql.SQL("{} TEXT").format(sql.Identifier(col)))
     # Builds CREATE TABLE query
     METADATA_COLUMNS = sql.SQL(
-        "millesime date, _source_file text, _source_sha256 text, _loaded_at timestamptz DEFAULT now()"
+        "millesime date, _source_file text, _source_sha256 text, "
+        "_loaded_at timestamptz DEFAULT now()"
     )
     query = sql.SQL("CREATE TABLE IF NOT EXISTS {} ({}, {})").format(
-            sql.Identifier(schema, table),
-            sql.SQL(", ").join(col_defs),
-            METADATA_COLUMNS)
+        sql.Identifier(schema, table), sql.SQL(", ").join(col_defs), METADATA_COLUMNS
+    )
     return query
+
 
 def _build_staging_table(table, columns):
     # Builds the column definitions for the CREATE TABLE statement
     col_defs = []
     for col in columns:
-        col_defs.append(
-            sql.SQL("{} TEXT").format(sql.Identifier(col))
-        )
+        col_defs.append(sql.SQL("{} TEXT").format(sql.Identifier(col)))
     # Builds CREATE TABLE query
     query = sql.SQL("CREATE TEMP TABLE {} ({}) ON COMMIT DROP").format(
-        sql.Identifier(table),
-        sql.SQL(", ").join(col_defs)
+        sql.Identifier(table), sql.SQL(", ").join(col_defs)
     )
     return query
 
 
-def _millesime_from_dataset_id (dataset_id: str) -> datetime.date:
+def _millesime_from_dataset_id(dataset_id: str) -> datetime.date:
     """Extract the millesime (YYYY-MM-DD) from the dataset_id."""
     # Assuming the dataset_id is in the format "parc_immobilier_YYYY-MM-DD"
     parts = dataset_id.split("_")
@@ -131,7 +134,9 @@ def load_snapshot(entry, snapshots_dir, conninfo) -> int:
 
     # Verify snapshot content against the manifest entry
     if compute_sha256(csv_bytes) != entry["sha256"]:
-        raise ValueError(f"{csv_path}: digest does not match the manifest, not the published snapshot")
+        raise ValueError(
+            f"{csv_path}: digest does not match the manifest, not the published snapshot"
+        )
     # Verify that the CSV has the expected columns and row count
     if not verify_csv_columns(csv_bytes):
         raise ValueError(f"{csv_path}: columns do not match the contract")
@@ -178,6 +183,7 @@ def load_snapshot(entry, snapshots_dir, conninfo) -> int:
             )
         return cur.rowcount
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Load versioned snapshots into bronze.")
     parser.add_argument("manifest", type=Path, help="Path to the manifest JSON file.")
@@ -195,6 +201,6 @@ def main() -> int:
         return 1
     return 0
 
+
 if __name__ == "__main__":
     sys.exit(main())
-

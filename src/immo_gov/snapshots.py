@@ -2,20 +2,40 @@ import csv
 import hashlib
 from io import StringIO
 
-
-
 # Number of columns in the CSV export, measured against the live endpoint on
 # 2026-08-28. The catalog advertises 29 fields, but point_geo is a computed geo
 # field that is not exported, so the file carries 28.
 EXPECTED_COLUMNS = 28
 
 COLUMNS = (
-    "code_chorus", "id", "designation_site", "designation_batiment_terrain", "type", "fonction",
-    "adresse", "ville", "dept", "code_postal", "code_insee", "libelle_nouvelle_region", "pays",
-    "latitude", "longitude", "ministere", "libelle_gestionnaire", "type_gestionnaire",
-    "libelle_proprietaire", "type_proprietaire", "surface_m2", "consommation_kwh_ef",
-    "type_de_chauffage", "etat_de_sante", "annee_de_construction", "tri_des_dechets", "erp",
-    "date_de_reference"
+    "code_chorus",
+    "id",
+    "designation_site",
+    "designation_batiment_terrain",
+    "type",
+    "fonction",
+    "adresse",
+    "ville",
+    "dept",
+    "code_postal",
+    "code_insee",
+    "libelle_nouvelle_region",
+    "pays",
+    "latitude",
+    "longitude",
+    "ministere",
+    "libelle_gestionnaire",
+    "type_gestionnaire",
+    "libelle_proprietaire",
+    "type_proprietaire",
+    "surface_m2",
+    "consommation_kwh_ef",
+    "type_de_chauffage",
+    "etat_de_sante",
+    "annee_de_construction",
+    "tri_des_dechets",
+    "erp",
+    "date_de_reference",
 )
 
 # The published vintages hold roughly 17,000 rows each. The floor is set well
@@ -27,6 +47,7 @@ MIN_DATA_ROWS = 2_000
 def compute_sha256(data: bytes) -> str:
     """Return the SHA-256 digest of the given bytes."""
     return hashlib.sha256(data).hexdigest()
+
 
 def describe_csv(csv_bytes: bytes) -> tuple[int, int]:
     """Return (column count, data row count) for a semicolon-delimited CSV.
@@ -64,6 +85,3 @@ def check_csv_content(csv_bytes: bytes) -> bool:
     except Exception as e:
         print("Error while reading the CSV:", e)
         return False
-
-
-

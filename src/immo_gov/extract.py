@@ -12,24 +12,23 @@ extraction date, licence, publisher, and both our row count and the provider's.
 """
 
 import argparse
-import sys
-from pathlib import Path
 import json
+import sys
 from datetime import UTC, datetime
+from pathlib import Path
+
 import requests
 
 from immo_gov.snapshots import (
-    compute_sha256, 
-    describe_csv, 
     check_csv_content,
+    compute_sha256,
+    describe_csv,
 )
-
 
 # Provenance document, shared by every snapshot in the directory. One file
 # rather than one per dataset: provenance is easier to audit when it is in a
 # single place, and the reader has one thing to open.
 MANIFEST_NAME = "manifest.json"
-
 
 
 def make_URL(dataset_id: str, query_params: str | None = None) -> str:
@@ -231,6 +230,7 @@ def extract_snapshot(dataset_id: str, dir_path: Path) -> int:
         print("No CSV retrieved.")
         return 1
     return 0
+
 
 def main() -> int:
     """Parse the command line and run one extraction."""
