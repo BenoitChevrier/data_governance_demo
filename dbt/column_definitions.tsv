@@ -1,0 +1,33 @@
+name	label_fr	type	definition_fr	source_system	description_en	tags
+code_chorus			Codes Chorus REFX d'identification des bâtiments et terrains: concaténation code région/code site/code bâtiment ou terrain	Chorus RE-Fx	Chorus REFX code identifying the building or plot: region code, site code and building or plot code concatenated	identifier;public
+id			Identifiant unique du bien	Chorus RE-Fx	Unique identifier of the asset	identifier;public
+designation_site			Libellé du site	Chorus RE-Fx	Label of the site the asset belongs to	building;public
+designation_batiment_terrain			Libellé du bien	Chorus RE-Fx	Label of the building or plot	building;public
+type			Usage majoritaire du bien	Chorus RE-Fx	Predominant use of the asset	building;public
+fonction			Usage majoritaire détaillé du bien	Chorus RE-Fx	Detailed predominant use of the asset	building;public
+adresse			Adresse normalisée du bien (n° et rue)	Chorus RE-Fx	Normalised street address of the asset (number and street)	location;public
+ville			Ville de situation du bien	Chorus RE-Fx	Town where the asset is located	location;public
+dept			Code du département de situation du bien	Chorus RE-Fx	Code of the department where the asset is located	location;public
+code_postal			Code postal de situation du bien	Chorus RE-Fx	Postal code where the asset is located	location;public
+code_insee			Code INSEE de situation du bien	Chorus RE-Fx	INSEE code of the municipality where the asset is located	location;public
+libelle_nouvelle_region			Nom de la région	Chorus RE-Fx	Name of the region	location;public
+pays			Pays de situation du bien	Chorus RE-Fx	Country where the asset is located	location;public
+latitude			Coordonnée de latitude du bien	Référentiel Technique, IGN	Latitude of the asset	location;public
+longitude			Coordonnée de longitude du bien	Référentiel Technique, IGN	Longitude of the asset	location;public
+ministere			Ministère occupant le bien	Chorus RE-Fx	Ministry occupying the asset	organisation;public
+libelle_gestionnaire			Libellé de l'occupant	Chorus RE-Fx	Label of the occupant	organisation;public
+type_gestionnaire			Type de l'occupant	Chorus RE-Fx	Type of occupant	organisation;public
+libelle_proprietaire			Libellé du propriétaire	Chorus RE-Fx	Label of the owner. Owners who are natural persons are published under a generic label, not by name	organisation;public
+type_proprietaire			Type du propriétaire	Chorus RE-Fx	Type of owner	organisation;public
+surface_m2			Surface du bien (m²)	Chorus RE-Fx, Référentiel Technique	Floor area of the asset, in square metres	building;public
+consommation_kwh_ef			Consommation énergétique du bien (kWh d'énergie finale)	Référentiel Technique, OSFi	Energy consumption of the asset, in kWh of final energy	energy;public
+type_de_chauffage			Type de chauffage du bien	Référentiel Technique	Heating type of the asset	energy;public
+etat_de_sante			Etat de santé générale du bien	Référentiel Technique	General condition of the asset	building;public
+annee_de_construction			Année de construction du bien	Chorus RE-Fx, Référentiel Technique	Year the asset was built	building;public
+tri_des_dechets			Identification des biens impliqués dans le tri des déchets	Référentiel Technique	Whether the asset takes part in waste sorting	environment;public
+erp			Identification des établissements recevant du publique	Référentiel Technique	Whether the asset is a venue open to the public (ERP)	building;public
+date_de_reference					Reference date as published by the provider. Absent from the data dictionary, and carrying the same date across vintages: use millesime to date a row	technical;public
+millesime				immo_gov loader	Vintage the row belongs to, derived from the dataset identifier by the loader. This is the column to date a row by	technical;public
+_source_file				immo_gov loader	Name of the snapshot file the row was loaded from	technical;public
+_source_sha256				immo_gov loader	SHA-256 of the snapshot file the row was loaded from, matching its sidecar in data/snapshots/	technical;public
+_loaded_at				immo_gov loader	Timestamp of the load that inserted the row	technical;public

@@ -1,5 +1,19 @@
 {
   "snapshots": {
+    "descriptif_donnees_parc_immobilier_etat_20231231_pdf": {
+      "bytes": 1077124,
+      "dataset_id": "descriptif_donnees_parc_immobilier_etat_20231231_pdf",
+      "extracted_at": "2026-09-16T12:32:07+00:00",
+      "file": "descriptif_donnees_parc_immobilier_etat_20231231.pdf",
+      "sha256": "5070352160aec621e710743c7034d6377c5cef200da89631277011abb9fb3bc0",
+      "source": {
+        "licence": "Licence Ouverte v2.0 (Etalab)",
+        "modified": "2024-12-20T10:33:56.463000+00:00",
+        "publisher": "DGFIP",
+        "title": "Descriptif_Données_Parc_Immobilier_Etat_20231231.pdf"
+      },
+      "source_url": "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/parc_immobilier_etat_20231231/attachments/descriptif_donnees_parc_immobilier_etat_20231231_pdf"
+    },
     "parc_immobilier_etat_20221231": {
       "bytes": 6612295,
       "columns": 28,
