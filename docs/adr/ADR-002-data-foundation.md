@@ -69,11 +69,15 @@ Three published vintages, measured on 2026-08-26:
 | v1.0 core requirement | Column(s) |
 |---|---|
 | Energy intensity KPI, kWh/m² | `consommation_kwh_ef`, `surface_m2` |
-| Owners | `ministere`, `libelle_proprietaire`, `type_proprietaire` |
-| Stewards | `libelle_gestionnaire`, `type_gestionnaire` |
+| Governance domains and stewardship — occupying ministry and body | `ministere`, `libelle_gestionnaire`, `type_gestionnaire` |
+| Asset ownership — legal owner, distinct from data ownership | `libelle_proprietaire`, `type_proprietaire` |
 | Géorisques join | `code_insee`, `latitude`, `longitude` |
 | Asset-management attributes | `etat_de_sante`, `erp`, `type_de_chauffage`, `annee_de_construction`, `fonction`, `type` |
 | Historisation | Three published vintages. **Not** `date_de_reference`, which reads `2021-12-31` in both the 2022 and 2023 exports (see §6) |
+
+**Real-estate roles are not data-governance roles.** Per the provider's data dictionary, `ministere` and `*_gestionnaire` describe the **occupant** of an asset and `*_proprietaire` its **legal owner**: who holds or uses the building, not who answers for the data. The governance roles are taken instead from the production chain the provider itself describes: the **Direction de l'immobilier de l'État** is the data owner of the dataset; the **occupying ministries** are the governance domains; their **real-estate managers**, who feed the Référentiel Technique, are the stewards of the fields they fill. Completeness per ministry is therefore directly actionable.
+
+Column definitions come from the same source. The data dictionary attached to the 2022 vintage (provider notice of 2024-12-19) gives each variable a description and its source system — Chorus RE-Fx, Référentiel Technique, OSFi, IGN. The 2023 notice, of the same date, is a scanned document. `date_de_reference` is the only exported column the dictionary does not define.
 
 ### Measured completeness — the heart of the decision
 
@@ -93,14 +97,14 @@ Three further anomalies, observed and exploitable:
 
 1. **Redaction by the publisher, across several ministries** — in both retained vintages, 26.5 % (2022) and 26.9 % (2023) of assets carry the label *"Bien contrôlé par le ministère de …"* in place of both `designation_site` and `designation_batiment_terrain`. The policy is concentrated: in 2023 it covers 99 % of Foreign Affairs assets, 34 % of Justice, 19 % of Culture and 10 % of Education. Coordinates are removed on 91 % of redacted assets, against 33 % elsewhere. Addresses and municipalities are **not** systematically blanked (57–64 % empty, against 40–45 %), and non-alphanumeric identifiers are not a redaction marker (90 % against 45 %). The publisher applies a confidentiality policy that is **visible in the data**; the classification demonstration documents it instead of simulating one.
    *Correction, 2026-09-14: an earlier version of this ADR attributed the redaction to Ministry of Defence assets. That was extrapolated from a 2021 sample; the 2022 and 2023 vintages contain no Defence assets at all (see anomaly 2).*
-2. **Scope break between vintages** — 110,906 rows in 2021, 16,895 in 2022. The main cause is measurable: the 2021 vintage held **74,804 Ministry of Defence assets**, the 2022 vintage holds none. Their withdrawal accounts for about 80 % of the 94,011-row drop; the rest comes mainly from *Divers*, *Economie – Finances* and *Biens remis au Domaine*, which disappear or nearly disappear, and a smaller Education perimeter. A gap of that magnitude within the same reference dataset is exactly what a Data Office must detect, explain and trace — and this one is explained.
+2. **Scope break between vintages** — 110,906 rows in 2021, 16,895 in 2022. The provider states it: the 2022 and 2023 releases update the portfolio for six ministries only — Agriculture, Culture, Justice, Education, Foreign Affairs, Social Affairs — the others to follow. The effect is measurable: the 2021 vintage held **74,804 Ministry of Defence assets**, the 2022 vintage holds none. Their withdrawal accounts for about 80 % of the 94,011-row drop; the rest comes mainly from *Divers*, *Economie – Finances* and *Biens remis au Domaine*, which disappear or nearly disappear, and a smaller Education perimeter. A gap of that magnitude within the same reference dataset is exactly what a Data Office must detect, explain and trace — and this one is explained.
 3. **`annee_de_construction` typed as text**, with `"0001"` used as a filler value. A textbook typing defect to fix in the *silver* layer.
 
 ### Rejected options
 
 | Option | Reason for rejection |
 |---|---|
-| **B — ADEME energy performance certificates** | Technically the strongest runner-up: 15.4 million rows, 230 fields, server-side filtering allowing a 7 MB extract, and a publisher-supplied `score_ban` confidence indicator. **Rejected on domain**: it describes private housing, not a public portfolio, and **carries no ownership or management information** — owners would have remained invented, which is the very defect this decision sets out to correct. |
+| **B — ADEME energy performance certificates** | Technically the strongest runner-up: 15.4 million rows, 230 fields, server-side filtering allowing a 7 MB extract, and a publisher-supplied `score_ban` confidence indicator. **Rejected on domain**: it describes private housing, not a public portfolio, and **carries no ownership or occupancy information** — the responsibility structure would have remained invented, which is the very defect this decision sets out to correct. |
 | **C — Geolocated DVF** | Clean, split by municipality. Rejected: it describes **transactions**, not a portfolio; several rows per sale with multi-valued lots, so any naive aggregation double-counts; and **no fine-grained join key** with the retained datasets. |
 | **D — BDNB** | The richest in building attributes. **Rejected on volume**: 36.7 GB for the national CSV. Incompatible with a repository a reader must be able to clone, even at département level. |
 | **E — RPLS** | Social housing: out of domain. National CSV above 700 MB, and the DIDO API imposes an undocumented filter syntax (`?DEP_CODE=eq:33`; `?DEP_CODE=33` returns HTTP 400). |
@@ -122,7 +126,7 @@ Three further anomalies, observed and exploitable:
 
 ### On personal data
 
-Checked across all 28 exported columns: **no personal data**. `libelle_gestionnaire` and `libelle_proprietaire` denote administrative entities (`DEFENSE - BDD : PHALSBOURG`, `ETAT DOMAINE PUBLIC`), not natural persons.
+Checked across all 28 exported columns: **no personal data**. `libelle_gestionnaire` and `libelle_proprietaire` hold administrative bodies or generic categories (`ONF - OFFICE NATIONAL DES FORETS`, `ETAT DOMAINE PRIVE PARTENAIRE GENERIQUE`). In 2023, 957 assets are owned by natural persons, but the owner is recorded only under the generic label `PERSONNE PHYSIQUE`: no name is published.
 
 The project adopts a **two-tier classification** rather than a single PII tag:
 
@@ -143,7 +147,7 @@ Open Licence / Etalab 2.0 for both datasets — no share-alike clause, no incomp
 
 ### Favourable
 
-- Owners and stewards become **verifiable facts** rather than inventions.
+- The responsibility structure comes from the data and from the provider's own production chain rather than being invented: data owner, domains and stewards are all traceable to the source.
 - Quality tests stop being circular: they rest on measured defects — 78 to 80 % missing consumption figures, about 5 % `0001` construction years, a quarter of the portfolio redacted.
 - The energy intensity KPI is computed **directly** from source columns.
 - Confidentiality classification documents a **real policy**, applied by the publisher.
