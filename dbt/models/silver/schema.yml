@@ -1,0 +1,151 @@
+version: 2
+
+models:
+  - name: silver_parc_immobilier
+    description: >-
+      Typed and cleaned copy of the State real-estate portfolio, one row per asset per
+      vintage (33,902 rows over the 2022 and 2023 snapshots). Empty strings become NULL,
+      numbers are read whatever format the provider used, and a withheld coordinate
+      published as "-" becomes NULL. Two values are rewritten and nothing else: a surface
+      of 0 m2 is read as missing, and "Oui"/"Non" become booleans. No row is filtered and
+      no outlier is corrected, so that completeness and validity stay measurable rather
+      than being repaired out of sight.
+    columns:
+      - name: asset_vintage_key
+        description: >-
+          Asset identifier and vintage joined, the grain of this model. The provider
+          publishes no key that is unique across vintages.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: id
+        description: Unique identifier of the asset within a vintage.
+        data_tests:
+          - not_null
+
+      - name: millesime
+        description: >-
+          Vintage the row belongs to, derived from the dataset identifier by the loader.
+          This is the column to date a row by, not date_de_reference.
+        data_tests:
+          - not_null
+          # Since dbt 1.12, the arguments of a generic test are nested under
+          # `arguments`; the flat form still runs but is deprecated.
+          - accepted_values:
+              arguments:
+                values: ["2022-12-31", "2023-12-31"]
+
+      - name: type
+        description: Predominant use of the asset, from a closed list of fourteen values.
+        data_tests:
+          # The apostrophes are doubled on purpose. accepted_values builds its SQL
+          # literals by plain concatenation and escapes nothing, so a value holding
+          # an apostrophe closes the string and breaks the query. SQL reads '' back
+          # as one apostrophe, so the test compares the published value.
+          - accepted_values:
+              arguments:
+                values:
+                  - "Bureau"
+                  - "Bâtiment agricole ou d''élevage"
+                  - "Bâtiment culturel"
+                  - "Bâtiment d''enseignement ou de sport"
+                  - "Bâtiment sanitaire ou social"
+                  - "Bâtiment technique"
+                  - "Commerce"
+                  - "Espace aménagé"
+                  - "Espace naturel"
+                  - "Logement"
+                  - "Monument et mémorial"
+                  - "Ouvrage d''art des réseaux et voiries"
+                  - "Réseaux et voirie"
+                  - "Édifice du culte"
+
+      - name: ministere
+        description: Ministry occupying the asset, or a collective label when it is shared.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - "Affaires sociales - Travail"
+                  - "Affaires étrangères"
+                  - "Agriculture"
+                  - "Biens remis au Domaine"
+                  - "Culture"
+                  - "Divers"
+                  - "Education nationale - Enseignement supérieur"
+                  - "Intérieur"
+                  - "Justice"
+                  - "Multi-occupation"
+
+      - name: type_gestionnaire
+        description: Legal nature of the occupant.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["EPA", "EPIC", "EPL", "EPSCP", "Etat", "GIP", "Pers.Mor.Privé"]
+
+      - name: etat_de_sante
+        description: >-
+          General condition of the asset, on a four-level scale. Filled on 42 % of rows:
+          the absence is itself a finding, and is left as NULL.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - "Très satisfaisant"
+                  - "Satisfaisant"
+                  - "Peu satisfaisant"
+                  - "Pas satisfaisant"
+
+      - name: surface_m2
+        description: >-
+          Floor area in square metres. A published 0 is read as missing rather than as a
+          measurement. Outliers are kept: the largest value in the 2023 vintage is
+          72.9 billion m2, which no French asset can be.
+
+      - name: consommation_kwh_ef
+        description: >-
+          Final energy consumption in kWh, filled on 21 % of rows. Published with a comma
+          and a non-breaking space in the 2022 vintage, with a dot in the 2023 one; both
+          are read here.
+
+      - name: latitude
+        description: >-
+          Latitude, filled on about half the rows. A position withheld by a ministry is
+          published as "-" and read here as NULL: 29 rows in 2022, 943 in 2023.
+
+      - name: longitude
+        description: Longitude, with the same redaction as latitude.
+
+      - name: erp
+        description: Whether the asset is a venue open to the public. Filled on every row.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+                quote: false
+
+      - name: tri_des_dechets
+        description: >-
+          Whether the asset takes part in waste sorting. Filled on 22 % of rows; the rest
+          is NULL, never false — reading silence as "does not sort" would invent a fact.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [true, false]
+                quote: false
+
+      - name: date_de_reference
+        description: >-
+          Reference date as published. Reads 2021-12-31 on every row of both vintages,
+          which is why it must not be used to date a row.
+
+      - name: _source_sha256
+        description: >-
+          SHA-256 of the snapshot the row was loaded from, matching the sidecar in
+          data/snapshots/. This is what makes a row in the catalog traceable to a file
+          anyone can re-download and verify.
+        data_tests:
+          - not_null

@@ -1,0 +1,192 @@
+# GENERATED FILE — do not edit by hand.
+#
+# Source of truth: dbt/column_definitions.tsv
+# Regenerate:      python tools/generate_sources_yml.py
+# Verify:          python tools/generate_sources_yml.py --check
+#
+# Field list fetched from the provider's catalog API by
+# tools/fetch_column_definitions.py. Provider definitions transcribed from the
+# data dictionary attached to the dataset, snapshotted with its SHA-256 under
+# data/snapshots/. The four metadata columns are added by the loader and
+# documented by this project.
+#
+# Column tags are the classification of this demo, declared as code and
+# validated against a closed vocabulary by the generator.
+version: 2
+
+sources:
+  - name: bronze
+    schema: bronze
+    tables:
+      - name: parc_immobilier
+        description: >-
+          Raw-layer copy of the French State real-estate portfolio (DGFiP open data, Open
+          Licence 2.0), vintages 2022-12-31 and 2023-12-31: one row per asset per vintage.
+          Loaded as published, defects included, so that completeness and validity can be
+          measured rather than lost at load time. Not meant for direct use: consume the silver
+          and gold layers.
+        columns:
+          - name: code_chorus
+            description: >-
+              Chorus REFX code identifying the building or plot: region code, site code and
+              building or plot code concatenated. Provider definition: « Codes Chorus REFX
+              d'identification des bâtiments et terrains: concaténation code région/code
+              site/code bâtiment ou terrain ». Source system: Chorus RE-Fx.
+            tags: [identifier, public]
+          - name: id
+            description: >-
+              Unique identifier of the asset. Provider definition: « Identifiant unique du bien
+              ». Source system: Chorus RE-Fx.
+            tags: [identifier, public]
+          - name: designation_site
+            description: >-
+              Label of the site the asset belongs to. Provider definition: « Libellé du site ».
+              Source system: Chorus RE-Fx.
+            tags: [building, public]
+          - name: designation_batiment_terrain
+            description: >-
+              Label of the building or plot. Provider definition: « Libellé du bien ». Source
+              system: Chorus RE-Fx.
+            tags: [building, public]
+          - name: type
+            description: >-
+              Predominant use of the asset. Provider definition: « Usage majoritaire du bien ».
+              Source system: Chorus RE-Fx.
+            tags: [building, public]
+          - name: fonction
+            description: >-
+              Detailed predominant use of the asset. Provider definition: « Usage majoritaire
+              détaillé du bien ». Source system: Chorus RE-Fx.
+            tags: [building, public]
+          - name: adresse
+            description: >-
+              Normalised street address of the asset (number and street). Provider definition: «
+              Adresse normalisée du bien (n° et rue) ». Source system: Chorus RE-Fx.
+            tags: [location, public]
+          - name: ville
+            description: >-
+              Town where the asset is located. Provider definition: « Ville de situation du bien
+              ». Source system: Chorus RE-Fx.
+            tags: [location, public]
+          - name: dept
+            description: >-
+              Code of the department where the asset is located. Provider definition: « Code du
+              département de situation du bien ». Source system: Chorus RE-Fx.
+            tags: [location, public]
+          - name: code_postal
+            description: >-
+              Postal code where the asset is located. Provider definition: « Code postal de
+              situation du bien ». Source system: Chorus RE-Fx.
+            tags: [location, public]
+          - name: code_insee
+            description: >-
+              INSEE code of the municipality where the asset is located. Provider definition: «
+              Code INSEE de situation du bien ». Source system: Chorus RE-Fx.
+            tags: [location, public]
+          - name: libelle_nouvelle_region
+            description: >-
+              Name of the region. Provider definition: « Nom de la région ». Source system:
+              Chorus RE-Fx.
+            tags: [location, public]
+          - name: pays
+            description: >-
+              Country where the asset is located. Provider definition: « Pays de situation du
+              bien ». Source system: Chorus RE-Fx.
+            tags: [location, public]
+          - name: latitude
+            description: >-
+              Latitude of the asset. Provider definition: « Coordonnée de latitude du bien ».
+              Source system: Référentiel Technique, IGN.
+            tags: [location, public]
+          - name: longitude
+            description: >-
+              Longitude of the asset. Provider definition: « Coordonnée de longitude du bien ».
+              Source system: Référentiel Technique, IGN.
+            tags: [location, public]
+          - name: ministere
+            description: >-
+              Ministry occupying the asset. Provider definition: « Ministère occupant le bien ».
+              Source system: Chorus RE-Fx.
+            tags: [organisation, public]
+          - name: libelle_gestionnaire
+            description: >-
+              Label of the occupant. Provider definition: « Libellé de l'occupant ». Source
+              system: Chorus RE-Fx.
+            tags: [organisation, public]
+          - name: type_gestionnaire
+            description: >-
+              Type of occupant. Provider definition: « Type de l'occupant ». Source system:
+              Chorus RE-Fx.
+            tags: [organisation, public]
+          - name: libelle_proprietaire
+            description: >-
+              Label of the owner. Owners who are natural persons are published under a generic
+              label, not by name. Provider definition: « Libellé du propriétaire ». Source
+              system: Chorus RE-Fx.
+            tags: [organisation, public]
+          - name: type_proprietaire
+            description: >-
+              Type of owner. Provider definition: « Type du propriétaire ». Source system:
+              Chorus RE-Fx.
+            tags: [organisation, public]
+          - name: surface_m2
+            description: >-
+              Floor area of the asset, in square metres. Provider definition: « Surface du bien
+              (m²) ». Source system: Chorus RE-Fx, Référentiel Technique.
+            tags: [building, public]
+          - name: consommation_kwh_ef
+            description: >-
+              Energy consumption of the asset, in kWh of final energy. Provider definition: «
+              Consommation énergétique du bien (kWh d'énergie finale) ». Source system:
+              Référentiel Technique, OSFi.
+            tags: [energy, public]
+          - name: type_de_chauffage
+            description: >-
+              Heating type of the asset. Provider definition: « Type de chauffage du bien ».
+              Source system: Référentiel Technique.
+            tags: [energy, public]
+          - name: etat_de_sante
+            description: >-
+              General condition of the asset. Provider definition: « Etat de santé générale du
+              bien ». Source system: Référentiel Technique.
+            tags: [building, public]
+          - name: annee_de_construction
+            description: >-
+              Year the asset was built. Provider definition: « Année de construction du bien ».
+              Source system: Chorus RE-Fx, Référentiel Technique.
+            tags: [building, public]
+          - name: tri_des_dechets
+            description: >-
+              Whether the asset takes part in waste sorting. Provider definition: «
+              Identification des biens impliqués dans le tri des déchets ». Source system:
+              Référentiel Technique.
+            tags: [environment, public]
+          - name: erp
+            description: >-
+              Whether the asset is a venue open to the public (ERP). Provider definition: «
+              Identification des établissements recevant du publique ». Source system:
+              Référentiel Technique.
+            tags: [building, public]
+          - name: date_de_reference
+            description: >-
+              Reference date as published by the provider. Absent from the data dictionary, and
+              carrying the same date across vintages: use millesime to date a row.
+            tags: [technical, public]
+          - name: millesime
+            description: >-
+              Vintage the row belongs to, derived from the dataset identifier by the loader.
+              This is the column to date a row by. Source system: immo_gov loader.
+            tags: [technical, public]
+          - name: _source_file
+            description: >-
+              Name of the snapshot file the row was loaded from. Source system: immo_gov loader.
+            tags: [technical, public]
+          - name: _source_sha256
+            description: >-
+              SHA-256 of the snapshot file the row was loaded from, matching its sidecar in
+              data/snapshots/. Source system: immo_gov loader.
+            tags: [technical, public]
+          - name: _loaded_at
+            description: >-
+              Timestamp of the load that inserted the row. Source system: immo_gov loader.
+            tags: [technical, public]

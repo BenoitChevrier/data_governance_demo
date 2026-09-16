@@ -1,0 +1,18 @@
+name: immo_gov
+version: "1.0.0"
+profile: immo_gov
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+
+# One folder per medallion layer, each materialised in its own schema.
+# Tables rather than the default view: the OpenMetadata profiler and its
+# quality tests work on stable relations, not on queries recomputed on read.
+models:
+  immo_gov:
+    silver:
+      +schema: silver
+      +materialized: table
+    gold:
+      +schema: gold
+      +materialized: table

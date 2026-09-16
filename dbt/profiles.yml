@@ -1,0 +1,18 @@
+# Local demo credentials, identical to docker-compose.yml and versioned for the
+# same reason: the stack binds to localhost and holds nothing but public open
+# data. Hiding them behind a file to copy would break the one-command promise.
+#
+# dbt looks for profiles.yml in the current working directory first, so run
+# every dbt command from the dbt/ folder.
+immo_gov:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      port: 5432
+      user: immo_user
+      password: immo_password
+      dbname: immo
+      schema: silver
+      threads: 4
