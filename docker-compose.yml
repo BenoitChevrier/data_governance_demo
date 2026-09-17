@@ -252,6 +252,14 @@ services:
       - ingestion-dag-configs:/opt/airflow/dag_generated_configs
       - ingestion-dags:/opt/airflow/dags
       - ingestion-tmp:/tmp
+      # dbt artefacts, read by the dbt agent: manifest.json for descriptions,
+      # tags and lineage, catalog.json for the columns, run_results.json for
+      # the test outcomes. The agent runs in this container, not on the host,
+      # so the folder has to be mounted to be seen at all. Read-only: the
+      # catalog reads what dbt produced and has no business changing it.
+      # The folder is ignored by git — run dbt build, dbt docs generate and
+      # dbt test, in that order, before the agent.
+      - ./dbt/target:/opt/dbt/target:ro
     depends_on:
       openmetadata-db:
         condition: service_healthy
