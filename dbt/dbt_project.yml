@@ -5,6 +5,15 @@ profile: immo_gov
 model-paths: ["models"]
 macro-paths: ["macros"]
 
+# Above this energy intensity, in kWh of final energy per square metre, a row is
+# read as a data defect rather than as a building: French tertiary buildings sit
+# roughly between 100 and 400. The threshold lives here, not inside the model, so
+# that it can be argued with and changed without touching SQL — 57 rows over the
+# two vintages sit above it, and they are enough to move the published KPI by
+# 86 %.
+vars:
+  implausible_intensity_kwh_m2: 1000
+
 # One folder per medallion layer, each materialised in its own schema.
 # Tables rather than the default view: the OpenMetadata profiler and its
 # quality tests work on stable relations, not on queries recomputed on read.

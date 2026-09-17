@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: gold_intensite_energetique
+    description: >-
+      Energy intensity of the State portfolio, in kWh of final energy per square metre,
+      by occupying ministry and vintage: ten ministries over two vintages. The KPI is
+      published three ways — weighted over every measured asset, weighted with implausible
+      rows excluded, and as the median asset — because they disagree. Weighted over
+      everything, the portfolio appears to move from 123.2 to 229.5 kWh/m2 in one year;
+      with 57 defective rows out of 6,642 excluded, it is flat at 100.5 then 100.4. Each
+      row also carries how much of the portfolio the figures actually rest on: consumption
+      is reported on about a fifth of assets.
+    columns:
+      - name: ministry_vintage_key
+        description: Occupying ministry and vintage, the grain of this model.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: ministere
+        description: Ministry occupying the assets, as published.
+        data_tests:
+          - not_null
+
+      - name: millesime
+        description: Vintage the figures are computed on.
+        data_tests:
+          - not_null
+
+      - name: assets_total
+        description: >-
+          Every asset of the ministry in that vintage, measured or not. This is the
+          denominator of the coverage rate: counting only measured assets would report
+          full coverage of the assets we happen to know about.
+        data_tests:
+          - not_null
+
+      - name: assets_measured
+        description: >-
+          Assets carrying both a surface and a consumption figure, the only ones an
+          intensity can be computed on.
+        data_tests:
+          - not_null
+
+      - name: coverage_rate
+        description: >-
+          Share of the ministry's assets the figures rest on, between 0 and 1. It comes
+          before the KPI in the table on purpose: it qualifies everything that follows.
+          Around 0.19 in 2022 and 0.20 in 2023 across the portfolio.
+        data_tests:
+          - not_null
+
+      - name: surface_measured_m2
+        description: Total floor area of the measured assets, in square metres.
+
+      - name: consumption_measured_kwh
+        description: Total final energy consumption of the measured assets, in kWh.
+
+      - name: intensity_kwh_m2
+        description: >-
+          Consumption divided by surface over every measured asset. This is the figure a
+          reader would compute without looking, and the one that moves by 86 % between
+          the two vintages because of a few dozen rows.
+
+      - name: intensity_kwh_m2_plausible_only
+        description: >-
+          The same ratio with rows above the implausible threshold excluded, the threshold
+          being declared in dbt_project.yml. Stable across the two vintages: 100.5 then
+          100.4 kWh/m2.
+
+      - name: median_intensity_kwh_m2
+        description: >-
+          Intensity of the median measured asset, which no single outlier can move. 80.3
+          in 2022, 74.2 in 2023.
+
+      - name: assets_above_threshold
+        description: >-
+          Assets whose intensity exceeds the threshold, counted rather than silently
+          dropped: 26 in 2022 and 31 in 2023. The exclusion is visible in the same row as
+          the figure it changes.
+        data_tests:
+          - not_null
