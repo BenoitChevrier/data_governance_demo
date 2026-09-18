@@ -50,6 +50,12 @@ def verify_manifest(path):
     snapshots = manifest["snapshots"]
     validated_entries = []
     for name, entry in snapshots.items():
+        # The manifest carries the provider's data dictionary alongside the CSV
+        # snapshots: same provenance chain, same digests, but a PDF has no rows
+        # to load. An entry without a kind predates this distinction and is a
+        # dataset.
+        if entry.get("kind", "dataset") != "dataset":
+            continue
         if not verify_manifest_entry(entry):
             raise ValueError(f"manifest entry {name!r} is malformed")
         if entry["dataset_id"] != name:

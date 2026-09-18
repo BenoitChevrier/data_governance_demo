@@ -152,6 +152,10 @@ def build_manifest_entry(
     columns, rows = describe_csv(csv_bytes)
     return {
         "dataset_id": dataset_id,
+        # What kind of snapshot this is. The manifest also carries the provider's
+        # data dictionary, which is documentation and not loadable data; the
+        # loader reads this key to tell them apart.
+        "kind": "dataset",
         "file": filename,
         "source_url": make_URL(_normalize_dataset_id(dataset_id)),
         "extracted_at": extracted_at or datetime.now(UTC).isoformat(timespec="seconds"),

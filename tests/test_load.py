@@ -148,6 +148,29 @@ def test_verify_manifest_returns_every_entry_of_the_real_manifest() -> None:
     ]
 
 
+def test_verify_manifest_skips_a_documentation_entry(tmp_path: Path) -> None:
+    """The manifest also carries the provider's data dictionary, a PDF.
+
+    It shares the provenance chain of the CSV snapshots — same digests, same
+    manifest — but it has no rows to load, and the loader must walk past it
+    instead of reporting a malformed entry.
+    """
+    dataset = _make_snapshot(tmp_path)
+    dictionary = {
+        "dataset_id": "descriptif_donnees_pdf",
+        "kind": "documentation",
+        "file": "descriptif_donnees.pdf",
+        "source_url": "https://example.invalid/attachments/descriptif_pdf",
+        "extracted_at": "2026-09-17T16:40:00+00:00",
+        "sha256": "0" * 64,
+        "bytes": 1077124,
+        "source": {},
+    }
+    entries = verify_manifest(_write_manifest(tmp_path, [dataset, dictionary]))
+
+    assert [entry["dataset_id"] for entry in entries] == [dataset["dataset_id"]]
+
+
 def test_verify_manifest_rejects_an_entry_missing_a_required_key(tmp_path: Path) -> None:
     entry = _make_snapshot(tmp_path)
     del entry["sha256"]

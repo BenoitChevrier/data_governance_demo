@@ -175,6 +175,9 @@ def snapshot_dictionary(
         directory / MANIFEST_NAME,
         {
             "dataset_id": attachment["id"],
+            # Documentation, not data: the loader skips it. Provenance is worth
+            # recording for the document the definitions were transcribed from.
+            "kind": "documentation",
             "file": filename,
             "source_url": attachment["url"],
             "extracted_at": datetime.now(UTC).isoformat(timespec="seconds"),
